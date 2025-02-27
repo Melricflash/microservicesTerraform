@@ -90,8 +90,8 @@ resource "aws_iam_role" "iam_eks_role_lb_controller" {
   })
 }
 
-resource "aws_iam_role" "role_eks_labsnow" {
-  name = "role_eks_labs_now"
+resource "aws_iam_role" "role_eks_melriclabs" {
+  name = "role_eks_melriclabs"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -121,12 +121,12 @@ resource "aws_iam_role_policy_attachment" "external_dns_policy_attach" {
 
 resource "aws_iam_role_policy_attachment" "ebs_csi_policy_attach" {
     role = aws_iam_role.ebs_csi_role.name
-    policy_arn = "arn:aws:iam::aws:policy/AmazonEBSCSIDriverPolicy" # Managed by AWS
+    policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy" # Managed by AWS
 }
 
 # Attach Managed ECR Access policy to EKS Workloads role
 resource "aws_iam_role_policy_attachment" "ecr_policy_attach" {
-    role = aws_iam_role.role_eks_labsnow.name
+    role = aws_iam_role.role_eks_melriclabs.name
     policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPullOnly"
 }
 
