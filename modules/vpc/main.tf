@@ -22,15 +22,35 @@ module "vpc" {
     intra_subnets = var.vpc_intra_subnets
 
     # Enable a NAT gateway to allow non public subnets to access the internet
-    enable_nat_gateway = false
+    enable_nat_gateway = true
+
+    # Enable single nat gateway, cheaper!
+    single_nat_gateway = true
 
     # Enable DNS Hostnames for Kubernetes
-    enable_dns_hostnames = false
+    enable_dns_hostnames = true
 
     # Tags are required for each subnet type so that it can be identified and used in Kubernetes
-    public_subnet_tags = var.vpc_public_subnet_tags
-    private_subnet_tags = var.vpc_private_subnet_tags
-    intra_subnet_tags = var.vpc_intra_subnet_tags
+    # public_subnet_tags = var.vpc_public_subnet_tags
+    # private_subnet_tags = var.vpc_private_subnet_tags
+    # intra_subnet_tags = var.vpc_intra_subnet_tags
+
+    public_subnet_tags = {
+        "kubernetes.io/role/elb" = "1"
+        Name = "$(var.cluster_name)-public"
+        "kubernetes.io/cluster/$(var.cluster_name)" = "shared"
+    }
+
+    private_subnet_tags = {
+        "kubernetes.io/role/internal-elb" = "1"
+        "kubernetes.io/cluster/$(var.cluster_name)" = "shared"
+        Name = "$(var.cluster_name)-private"
+    }
+
+    intra_subnet_tags = {
+        Name = "${var.cluster_name}-intra"
+    }
+
 }
 
 # Creating Security Group for the VPC

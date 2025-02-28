@@ -106,6 +106,27 @@ resource "aws_iam_policy" "SQS_delete_message" {
   
 }
 
+resource "aws_iam_policy" "SQS_get_queue_attributes" {
+    name = "SQS_get_queue_attributes"
+    description = "Grants access to a SQS queues attributes"
+
+    policy = jsonencode({
+	"Version": "2012-10-17",
+	"Statement": [
+		{
+			"Sid": "Statement1",
+			"Effect": "Allow",
+			"Action": [
+				"sqs:GetQueueAttributes"
+			],
+			"Resource": [
+				"*"
+			]
+		}
+	]
+})
+}
+
 # Policy for Load Balancer Controller
 resource "aws_iam_policy" "load_balancer_policy" {
     name = "load_balancer_policy"

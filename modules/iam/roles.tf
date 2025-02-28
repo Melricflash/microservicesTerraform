@@ -1,5 +1,7 @@
 # Creating IAM Roles and using assume_role_policy for federated OIDC authentication
 
+# Automatically retrieve the account details for the running user
+data "aws_caller_identity" "current" {}
 
 # Create the role, then attach a policy later
 resource "aws_iam_role" "external_dns" {
@@ -10,7 +12,7 @@ resource "aws_iam_role" "external_dns" {
       {
         Effect = "Allow"
         Principal = {
-          Federated = "arn:aws:iam::${var.aws_caller_identity_id}:oidc-provider/${var.oidc_provider}"
+          Federated = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${var.oidc_provider}"
         }
         Action = "sts:AssumeRoleWithWebIdentity"
         Condition = {
@@ -24,6 +26,8 @@ resource "aws_iam_role" "external_dns" {
   })
 }
 
+#arn:aws:iam::
+
 resource "aws_iam_role" "ebs_csi_role" {
   name = "ebs_csi_role"
   assume_role_policy = jsonencode({
@@ -32,7 +36,7 @@ resource "aws_iam_role" "ebs_csi_role" {
       {
         Effect = "Allow"
         Principal = {
-          Federated = "arn:aws:iam::${var.aws_caller_identity_id}:oidc-provider/${var.oidc_provider}"
+          Federated = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${var.oidc_provider}"
         }
         Action = "sts:AssumeRoleWithWebIdentity"
         Condition = {
@@ -54,7 +58,7 @@ resource "aws_iam_role" "sqs_role" {
       {
         Effect = "Allow"
         Principal = {
-          Federated = "arn:aws:iam::${var.aws_caller_identity_id}:oidc-provider/${var.oidc_provider}"
+          Federated = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${var.oidc_provider}"
         }
         Action = "sts:AssumeRoleWithWebIdentity"
         Condition = {
@@ -76,7 +80,7 @@ resource "aws_iam_role" "iam_eks_role_lb_controller" {
       {
         Effect = "Allow"
         Principal = {
-          Federated = "arn:aws:iam::${var.aws_caller_identity_id}:oidc-provider/${var.oidc_provider}"
+          Federated = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${var.oidc_provider}"
         }
         Action = "sts:AssumeRoleWithWebIdentity"
         Condition = {
@@ -98,7 +102,7 @@ resource "aws_iam_role" "role_eks_melriclabs" {
       {
         Effect = "Allow"
         Principal = {
-          Federated = "arn:aws:iam::${var.aws_caller_identity_id}:oidc-provider/${var.oidc_provider}"
+          Federated = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${var.oidc_provider}"
         }
         Action = "sts:AssumeRoleWithWebIdentity"
         Condition = {
@@ -147,6 +151,12 @@ resource "aws_iam_role_policy_attachment" "sqs_delete_policy_attach" {
     policy_arn = aws_iam_policy.SQS_delete_message.arn
 }
 
+# Attach get attributes for SQS
+resource "aws_iam_role_policy_attachment" "sqs_get_attributes_policy_attach" {
+    role = aws_iam_role.sqs_role.name
+    policy_arn = aws_iam_policy.SQS_get_queue_attributes.arn
+}
+
 
 # Provide OIDC and it will create the roles and attach the policies automatically for the LB controller and EKS workloads roles?
 
@@ -155,3 +165,39 @@ resource "aws_iam_role_policy_attachment" "load_balancer_policy_attach" {
     role = aws_iam_role.iam_eks_role_lb_controller.name
     policy_arn = aws_iam_policy.load_balancer_policy.arn
 }
+
+
+# EKS node group policy assignment
+
+# Node Group 1
+resource "aws_iam_role_policy_attachment" "node_group_1_ssm_policy_attach" {
+    role = var.node_group_1_role
+    policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+resource "aws_iam_role_policy_attachment" "node_group_1_ecr_read_policy_attach" {
+    role = var.node_group_1_role
+    policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+}
+
+# # Node Group 2
+# resource "aws_iam_role_policy_attachment" "node_group_2_ssm_policy_attach" {
+#     role = var.node_group_2_role
+#     policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+# }
+
+# resource "aws_iam_role_policy_attachment" "node_group_2_ecr_read_policy_attach" {
+#     role = var.node_group_2_role
+#     policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+# }
+
+# # Node Group 3
+# resource "aws_iam_role_policy_attachment" "node_group_3_ssm_read_policy_attach" {
+#     role = var.node_group_3_role
+#     policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+# }
+
+# resource "aws_iam_role_policy_attachment" "node_group_3_ecr_read_policy_attach" {
+#     role = var.node_group_3_role
+#     policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+# }
