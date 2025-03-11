@@ -127,6 +127,28 @@ resource "aws_iam_policy" "SQS_get_queue_attributes" {
 })
 }
 
+resource "aws_iam_policy" "SQS_get_queue_url" {
+    name = "SQS_get_queue_url"
+    description = "Grants access to the SQS Queue URL"
+
+    policy = jsonencode({
+	"Version": "2012-10-17",
+	"Statement": [
+		{
+			"Sid": "Statement1",
+			"Effect": "Allow",
+			"Action": [
+				"sqs:GetQueueUrl"
+			],
+			"Resource": [
+				"*"
+			]
+		}
+	]
+}
+    )
+}
+
 # Policy for Load Balancer Controller
 resource "aws_iam_policy" "load_balancer_policy" {
     name = "load_balancer_policy"

@@ -4,8 +4,8 @@
 data "aws_caller_identity" "current" {}
 
 # Create the role, then attach a policy later
-resource "aws_iam_role" "external_dns" {
-  name = "external_dns"
+resource "aws_iam_role" "melric_external_dns" {
+  name = "melric-external-dns"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -18,7 +18,7 @@ resource "aws_iam_role" "external_dns" {
         Condition = {
           StringEquals = {
             "${var.oidc_provider}:aud" = "sts.amazonaws.com",
-            "${var.oidc_provider}:sub" = "system:serviceaccount:kube-system:external-dns"
+            "${var.oidc_provider}:sub" = "system:serviceaccount:issue-microservices:external-dns"
           }
         }
       }
@@ -28,8 +28,8 @@ resource "aws_iam_role" "external_dns" {
 
 #arn:aws:iam::
 
-resource "aws_iam_role" "ebs_csi_role" {
-  name = "ebs_csi_role"
+resource "aws_iam_role" "melric_ebs_csi_role" {
+  name = "melric_ebs_csi_role"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -42,7 +42,7 @@ resource "aws_iam_role" "ebs_csi_role" {
         Condition = {
           StringEquals = {
             "${var.oidc_provider}:aud" = "sts.amazonaws.com",
-            "${var.oidc_provider}:sub" = "system:serviceaccount:kube-system:external-dns"
+            "${var.oidc_provider}:sub" = "system:serviceaccount:issue-microservices:ebs-csi"
           }
         }
       }
@@ -50,8 +50,8 @@ resource "aws_iam_role" "ebs_csi_role" {
   })
 }
 
-resource "aws_iam_role" "sqs_role" {
-  name = "sqs_role"
+resource "aws_iam_role" "melric_sqs_role" {
+  name = "melric-sqs-role"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -64,7 +64,7 @@ resource "aws_iam_role" "sqs_role" {
         Condition = {
           StringEquals = {
             "${var.oidc_provider}:aud" = "sts.amazonaws.com",
-            "${var.oidc_provider}:sub" = "system:serviceaccount:kube-system:external-dns"
+            "${var.oidc_provider}:sub" = "system:serviceaccount:issue-microservices:frontend-service-account" # Make a note that this needs to be the name of the service account used in K8s
           }
         }
       }
@@ -72,8 +72,9 @@ resource "aws_iam_role" "sqs_role" {
   })
 }
 
-resource "aws_iam_role" "iam_eks_role_lb_controller" {
-  name = "iam_eks_role_lb_controller"
+# Splitting the SQS role into two
+resource "aws_iam_role" "melric_sqs_consume_role" {
+  name = "melric-sqs-role-consume"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -86,7 +87,29 @@ resource "aws_iam_role" "iam_eks_role_lb_controller" {
         Condition = {
           StringEquals = {
             "${var.oidc_provider}:aud" = "sts.amazonaws.com",
-            "${var.oidc_provider}:sub" = "system:serviceaccount:kube-system:external-dns"
+            "${var.oidc_provider}:sub" = "system:serviceaccount:issue-microservices:backend-service-account" 
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role" "melric-iam-eks-role-lb-controller" {
+  name = "melric-iam-eks-role-lb-controller"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Federated = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${var.oidc_provider}"
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "${var.oidc_provider}:aud" = "sts.amazonaws.com",
+            "${var.oidc_provider}:sub" = "system:serviceaccount:kube-system:aws-load-balancer-controller"
           }
         }
       }
@@ -108,7 +131,7 @@ resource "aws_iam_role" "role_eks_melriclabs" {
         Condition = {
           StringEquals = {
             "${var.oidc_provider}:aud" = "sts.amazonaws.com",
-            "${var.oidc_provider}:sub" = "system:serviceaccount:kube-system:external-dns"
+            "${var.oidc_provider}:sub" = "system:serviceaccount:issue-microservices:eks-melric"
           }
         }
       }
@@ -116,15 +139,17 @@ resource "aws_iam_role" "role_eks_melriclabs" {
   })
 }
 
+
+
 # Attaching the policies to the roles
 resource "aws_iam_role_policy_attachment" "external_dns_policy_attach" {
-    role = aws_iam_role.external_dns.name
+    role = aws_iam_role.melric_external_dns.name
     policy_arn = aws_iam_policy.route53_ExternalDNS.arn
 }
 
 
 resource "aws_iam_role_policy_attachment" "ebs_csi_policy_attach" {
-    role = aws_iam_role.ebs_csi_role.name
+    role = aws_iam_role.melric_ebs_csi_role.name
     policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy" # Managed by AWS
 }
 
@@ -137,24 +162,29 @@ resource "aws_iam_role_policy_attachment" "ecr_policy_attach" {
 
 # We want to attach multiple policies for SQS
 resource "aws_iam_role_policy_attachment" "sqs_create_policy_attach" {
-    role = aws_iam_role.sqs_role.name
+    role = aws_iam_role.melric_sqs_role.name
     policy_arn = aws_iam_policy.SQS_create_message.arn
-}
-
-resource "aws_iam_role_policy_attachment" "sqs_read_policy_attach" {
-    role = aws_iam_role.sqs_role.name
-    policy_arn = aws_iam_policy.SQS_read_message.arn
-}
-
-resource "aws_iam_role_policy_attachment" "sqs_delete_policy_attach" {
-    role = aws_iam_role.sqs_role.name
-    policy_arn = aws_iam_policy.SQS_delete_message.arn
 }
 
 # Attach get attributes for SQS
 resource "aws_iam_role_policy_attachment" "sqs_get_attributes_policy_attach" {
-    role = aws_iam_role.sqs_role.name
+    role = aws_iam_role.melric_sqs_role.name
     policy_arn = aws_iam_policy.SQS_get_queue_attributes.arn
+}
+
+resource "aws_iam_role_policy_attachment" "sqs_get_queue_url_policy_attach" {
+    role = aws_iam_role.melric_sqs_role.name
+    policy_arn = aws_iam_policy.SQS_get_queue_url.arn
+}
+
+resource "aws_iam_role_policy_attachment" "sqs_read_policy_attach" {
+    role = aws_iam_role.melric_sqs_consume_role.name
+    policy_arn = aws_iam_policy.SQS_read_message.arn
+}
+
+resource "aws_iam_role_policy_attachment" "sqs_delete_policy_attach" {
+    role = aws_iam_role.melric_sqs_consume_role.name
+    policy_arn = aws_iam_policy.SQS_delete_message.arn
 }
 
 
@@ -162,7 +192,7 @@ resource "aws_iam_role_policy_attachment" "sqs_get_attributes_policy_attach" {
 
 # Attach LB policy to the role
 resource "aws_iam_role_policy_attachment" "load_balancer_policy_attach" {
-    role = aws_iam_role.iam_eks_role_lb_controller.name
+    role = aws_iam_role.melric-iam-eks-role-lb-controller.name
     policy_arn = aws_iam_policy.load_balancer_policy.arn
 }
 
