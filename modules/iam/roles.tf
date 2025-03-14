@@ -95,6 +95,30 @@ resource "aws_iam_role" "melric_sqs_consume_role" {
   })
 }
 
+# K8s can only assume a single service account at a time, combine SES and SQS policies to one role
+resource "aws_iam_role" "melric_ses_sqs_role" {
+  name = "melric-ses-sqs-role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Federated = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${var.oidc_provider}"
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "${var.oidc_provider}:aud" = "sts.amazonaws.com",
+            "${var.oidc_provider}:sub" = "system:serviceaccount:issue-microservices:ses-backend-service-account" 
+          }
+        }
+      }
+    ]
+  })
+  
+}
+
 resource "aws_iam_role" "melric-iam-eks-role-lb-controller" {
   name = "melric-iam-eks-role-lb-controller"
   assume_role_policy = jsonencode({
@@ -177,6 +201,11 @@ resource "aws_iam_role_policy_attachment" "sqs_get_queue_url_policy_attach" {
     policy_arn = aws_iam_policy.SQS_get_queue_url.arn
 }
 
+resource "aws_iam_role_policy_attachment" "sqs_bedrock_policy_attach" {
+  role = aws_iam_role.melric_sqs_role.name
+  policy_arn = aws_iam_policy.bedrock_policy.arn
+}
+
 resource "aws_iam_role_policy_attachment" "sqs_read_policy_attach" {
     role = aws_iam_role.melric_sqs_consume_role.name
     policy_arn = aws_iam_policy.SQS_read_message.arn
@@ -187,6 +216,10 @@ resource "aws_iam_role_policy_attachment" "sqs_delete_policy_attach" {
     policy_arn = aws_iam_policy.SQS_delete_message.arn
 }
 
+resource "aws_iam_role_policy_attachment" "sqs_ses_policy_attach" {
+  role = aws_iam_role.melric_ses_sqs_role.name
+  policy_arn = aws_iam_policy.SQS_SES_policy.arn
+}
 
 # Provide OIDC and it will create the roles and attach the policies automatically for the LB controller and EKS workloads roles?
 

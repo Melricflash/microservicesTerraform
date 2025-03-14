@@ -149,6 +149,30 @@ resource "aws_iam_policy" "SQS_get_queue_url" {
     )
 }
 
+# Policy for Bedrock services, frontend
+resource "aws_iam_policy" "bedrock_policy" {
+    name = "bedrock_policy"
+    description = "Policy for Bedrock Services"
+
+    policy = jsonencode({
+	"Version": "2012-10-17",
+	"Statement": [
+		{
+			"Sid": "Statement1",
+			"Effect": "Allow",
+			"Action": [
+				"bedrock:InvokeModel",
+				"bedrock:InvokeModelWithResponseStream",
+				"bedrock:CreateModelInvocationJob"
+			],
+			"Resource": [
+				"*"
+			]
+		}
+	]
+})
+}
+
 # Policy for Load Balancer Controller
 resource "aws_iam_policy" "load_balancer_policy" {
     name = "load_balancer_policy"
@@ -400,5 +424,29 @@ resource "aws_iam_policy" "load_balancer_policy" {
             "Resource": "*"
         }
     ]
+})
+}
+
+# K8s can only assume a single service account at a time, need to combine SES and SQS policy into one
+resource "aws_iam_policy" "SQS_SES_policy" {
+    name = "sqs_ses_policy"
+    description = "Allows SES and SQS functionality"
+
+    policy = jsonencode({
+	"Version": "2012-10-17",
+	"Statement": [
+		{
+			"Sid": "Statement1",
+			"Effect": "Allow",
+			"Action": [
+				"sqs:DeleteMessage",
+				"sqs:ReceiveMessage",
+				"ses:SendEmail",
+				"ses:SendRawEmail",
+				"ses:SendTemplatedEmail"
+			],
+			"Resource": "*"
+		}
+	]
 })
 }
